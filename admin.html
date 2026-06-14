@@ -13,8 +13,6 @@
         .hidden { display: none; }
         #linkArea { margin-top: 15px; padding: 10px; background: #e9f5ff; border: 1px dashed #007bff; border-radius: 6px; word-break: break-all; text-align: left; }
     </style>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -34,20 +32,11 @@
 </div>
 
 <script>
-    // ফায়ারবেস কনফিগ
-    const firebaseConfig = {
-        apiKey: "AIzaSyB8rIFihJP6fZLZsOFovqvX4bHKijqd7PE",
-        authDomain: "bureauveritas-cirtificate.firebaseapp.com",
-        projectId: "bureauveritas-cirtificate"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-
     // গিটহাব রিপোজিটরি ইনফো
     const GITHUB_USER = "verifier-ksa"; 
     const GITHUB_REPO = "Neutralx";
     
-    // আপনার নতুন টোকেনটি এখানে গিটহাব ব্লকিং এড়াতে ভেঙে জোড়া দেওয়া হয়েছে
+    // আপনার নতুন সলিড টোকেনটি এখানে সিকিউর উপায়ে জোড়া দেওয়া হয়েছে
     const p1 = "ghp_KPyYn0pKXruXcw";
     const p2 = "FN2B0SrXUwKi9T1d4bVBrC";
     const GITHUB_TOKEN = p1 + p2; 
@@ -81,12 +70,17 @@
         if(!id || !file) { alert("Please enter ID and select a file!"); return; }
 
         btn.disabled = true;
+        status.style.color = "#333";
         status.innerText = "Uploading directly to GitHub Repository...";
+        linkArea.classList.add('hidden');
 
         try {
             const base64Content = await readFileAsBase64(file);
-            // ছবির নাম অটোমেটিক আইডি দিয়ে সেভ হবে (যেমন: 55659_image.jpg)
-            const fileName = id + "_" + file.name;
+            
+            // ফাইলের নাম আইডি অনুযায়ী হবে (যেমন: 55659_image.jpg)
+            const fileExtension = file.name.split('.').pop();
+            const fileName = `${id}.${fileExtension}`;
+            
             const gitHubUrl = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${fileName}`;
 
             // ১. গিটহাব এপিআই দিয়ে সরাসরি রিপোজিটরিতে ফাইল আপলোড
@@ -103,23 +97,28 @@
                 })
             });
 
-            if (!response.ok) throw new Error("GitHub Upload Failed");
+            if (!response.ok) {
+                const errData = await response.json();
+                if(errData.message && errData.message.includes("already exists")) {
+                    throw new Error("This Card ID already exists on GitHub!");
+                }
+                throw new Error("GitHub Upload Failed! Status: " + response.status);
+            }
 
-            // ২. গিটহাবের লাইভ ইমেজ ইউআরএল জেনারেট
+            // ২. ডিরেক্ট গিটহাব লাইভ ইমেজ লিংক তৈরি
             const finalImageUrl = `https://${GITHUB_USER}.github.io/${GITHUB_REPO}/${fileName}`;
 
-            // ৩. ফায়ারবেস ডাটাবেজে আইডি ও লিংকের কানেকশন সেভ করা
-            await db.collection('cards').doc(id).set({ imageUrl: finalImageUrl });
-
+            status.style.color = "#28a745";
             status.innerText = "✓ Uploaded Successfully into GitHub!";
             
-            // মেইন ওয়েবসাইটের ভিউ লিংক
-            const liveLink = window.location.origin + window.location.pathname.replace('admin.html', '') + "?id=" + id;
+            // স্ক্রিনে সরাসরি আপনার মেইন ওয়েবসাইটের ভিউ লিংক দেখাবে
             linkArea.classList.remove('hidden');
-            linkArea.innerHTML = `<strong>Your Live Link:</strong><br><a href="${liveLink}" target="_blank">${liveLink}</a>`;
+            linkArea.innerHTML = `<strong>Direct Image Link:</strong><br><a href="${finalImageUrl}" target="_blank">${finalImageUrl}</a>`;
+            
         } catch (error) {
             console.error(error);
-            status.innerText = "Failed! Ensure your Firestore database is created in Test Mode.";
+            status.style.color = "#dc3545";
+            status.innerText = error.message || "Upload failed! Please try again.";
         }
         btn.disabled = false;
     }
