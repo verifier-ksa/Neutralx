@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Direct GitHub Upload</title>
+    <title>Admin - Direct Secure Upload</title>
     <style>
         body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         .box { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
@@ -23,7 +23,8 @@
 </div>
 
 <div class="box hidden" id="uploadBox">
-    <h2>Direct GitHub Upload</h2>
+    <h2>Secure GitHub Upload</h2>
+    <input type="password" id="tokenInput" placeholder="Paste GitHub Token (ghp_...)">
     <input type="text" id="cardId" placeholder="Enter Card ID (e.g., 55659)">
     <input type="file" id="fileInput" accept="image/*">
     <button id="uploadBtn" onclick="uploadToGitHub()">Upload Directly to GitHub</button>
@@ -32,14 +33,9 @@
 </div>
 
 <script>
-    // গিটহাব রিপোজিটরি ইনফো
+    // আপনার গিটহাব ইনফো
     const GITHUB_USER = "verifier-ksa"; 
     const GITHUB_REPO = "Neutralx";
-    
-    // আপনার নতুন সলিড টোকেনটি এখানে সিকিউর উপায়ে জোড়া দেওয়া হয়েছে
-    const p1 = "ghp_KPyYn0pKXruXcw";
-    const p2 = "FN2B0SrXUwKi9T1d4bVBrC";
-    const GITHUB_TOKEN = p1 + p2; 
 
     function login() {
         const pass = document.getElementById('passInput').value;
@@ -61,12 +57,14 @@
     }
 
     async function uploadToGitHub() {
+        const token = document.getElementById('tokenInput').value.trim();
         const id = document.getElementById('cardId').value.trim();
         const file = document.getElementById('fileInput').files[0];
         const btn = document.getElementById('uploadBtn');
         const status = document.getElementById('status');
         const linkArea = document.getElementById('linkArea');
 
+        if(!token) { alert("Please paste your GitHub Token!"); return; }
         if(!id || !file) { alert("Please enter ID and select a file!"); return; }
 
         btn.disabled = true;
@@ -76,42 +74,39 @@
 
         try {
             const base64Content = await readFileAsBase64(file);
-            
-            // ফাইলের নাম আইডি অনুযায়ী হবে (যেমন: 55659_image.jpg)
             const fileExtension = file.name.split('.').pop();
             const fileName = `${id}.${fileExtension}`;
             
             const gitHubUrl = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${fileName}`;
 
-            // ১. গিটহাব এপিআই দিয়ে সরাসরি রিপোজিটরিতে ফাইল আপলোড
+            // গিটহাব এপিআই দিয়ে সরাসরি রিপোজিটরিতে ফাইল আপলোড
             const response = await fetch(gitHubUrl, {
                 method: "PUT",
                 headers: {
-                    "Authorization": `token ${GITHUB_TOKEN}`,
+                    "Authorization": `token ${token}`,
                     "Accept": "application/vnd.github.v3+json",
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    message: `Upload card ${id} via Admin Panel`,
+                    message: `Upload card ${id} via Secure Admin Panel`,
                     content: base64Content
                 })
             });
 
             if (!response.ok) {
-                const errData = await response.json();
-                if(errData.message && errData.message.includes("already exists")) {
-                    throw new Error("This Card ID already exists on GitHub!");
+                if(response.status === 401) {
+                    throw new Error("Your GitHub Token has expired or is incorrect! Please create a new token.");
                 }
                 throw new Error("GitHub Upload Failed! Status: " + response.status);
             }
 
-            // ২. ডিরেক্ট গিটহাব লাইভ ইমেজ লিংক তৈরি
+            // গিটহাব লাইভ ইমেজ লিংক তৈরি
             const finalImageUrl = `https://${GITHUB_USER}.github.io/${GITHUB_REPO}/${fileName}`;
 
             status.style.color = "#28a745";
             status.innerText = "✓ Uploaded Successfully into GitHub!";
             
-            // স্ক্রিনে সরাসরি আপনার মেইন ওয়েবসাইটের ভিউ লিংক দেখাবে
+            // স্ক্রিনে সরাসরি লাইভ লিংক দেখাবে
             linkArea.classList.remove('hidden');
             linkArea.innerHTML = `<strong>Direct Image Link:</strong><br><a href="${finalImageUrl}" target="_blank">${finalImageUrl}</a>`;
             
