@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Direct GitHub Upload</title>
+    <title>Admin - Secure GitHub Upload</title>
     <style>
         body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         .box { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
@@ -20,12 +20,13 @@
 
 <div class="box" id="loginBox">
     <h2>Admin Login</h2>
-    <input type="password" id="passInput" placeholder="Enter Password">
+    <input type="password" id="passInput" placeholder="Enter Login Password">
     <button style="background:#007bff;" onclick="login()">Login</button>
 </div>
 
 <div class="box hidden" id="uploadBox">
-    <h2>Direct GitHub Upload</h2>
+    <h2>Secure GitHub Upload</h2>
+    <input type="password" id="gitTokenInput" placeholder="Paste your GitHub Token (ghp_...)">
     <input type="text" id="cardId" placeholder="Enter Card ID (e.g., 55659)">
     <input type="file" id="fileInput" accept="image/*">
     <button id="uploadBtn" onclick="uploadToGitHub()">Upload & Link Automatically</button>
@@ -43,10 +44,9 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // আপনার নতুন গিটহাব রিপোজিটরির সঠিক তথ্য অটো সেট করা আছে
+    // গিটহাব ইনফো
     const GITHUB_USER = "verifier-ksa"; 
     const GITHUB_REPO = "Neutralx";
-    const GITHUB_TOKEN = "YOUR_GITHUB_TOKEN_HERE"; // <--- এখানে আপনার গিটহাব টোকেনটি বসান
 
     function login() {
         const pass = document.getElementById('passInput').value;
@@ -68,12 +68,14 @@
     }
 
     async function uploadToGitHub() {
+        const userToken = document.getElementById('gitTokenInput').value.trim();
         const id = document.getElementById('cardId').value.trim();
         const file = document.getElementById('fileInput').files[0];
         const btn = document.getElementById('uploadBtn');
         const status = document.getElementById('status');
         const linkArea = document.getElementById('linkArea');
 
+        if(!userToken) { alert("Please paste your GitHub Token first!"); return; }
         if(!id || !file) { alert("Please enter ID and select a file!"); return; }
 
         btn.disabled = true;
@@ -88,7 +90,7 @@
             const response = await fetch(gitHubUrl, {
                 method: "PUT",
                 headers: {
-                    "Authorization": `token ${GITHUB_TOKEN}`,
+                    "Authorization": `token ${userToken}`,
                     "Accept": "application/vnd.github.v3+json",
                     "Content-Type": "application/json"
                 },
@@ -98,7 +100,7 @@
                 })
             });
 
-            if (!response.ok) throw new Error("GitHub Upload Failed");
+            if (!response.ok) throw new Error("GitHub Upload Failed. Check Token!");
 
             // ২. গিটহাব লাইভ ইমেজ ইউআরএল জেনারেট
             const finalImageUrl = `https://${GITHUB_USER}.github.io/${GITHUB_REPO}/${fileName}`;
@@ -112,11 +114,10 @@
             linkArea.innerHTML = `<strong>Your Live Link:</strong><br><a href="${liveLink}" target="_blank">${liveLink}</a>`;
         } catch (error) {
             console.error(error);
-            status.innerText = "Failed! Check your GitHub Token or Repository Permissions.";
+            status.innerText = "Failed! Ensure Token is correct and Firestore is in Test Mode.";
         }
         btn.disabled = false;
     }
 </script>
 </body>
 </html>
-
